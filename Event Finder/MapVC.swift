@@ -9,7 +9,7 @@
 import UIKit
 import GoogleMaps
 import Alamofire
-import SwiftyJSON
+//import SwiftyJSON
 
 class MapVC: UIViewController {
 
@@ -35,65 +35,35 @@ class MapVC: UIViewController {
     
     func findEvents(url: String) {
         Alamofire.request(url).responseJSON(completionHandler: { (response) in
-            if let value = response.result.value {
-                let json = JSON(value)
-                for i in 0...json.count {
-                    let event = json[i]
-                    let lat = event["lat"].doubleValue
-                    let lon = event["lon"].doubleValue
-                    let city = event["city"].stringValue
-                    let state = event["state"].stringValue
-                    let zip = event["zip"].stringValue
-                    let snippet = "\(city), \(state) \(zip)"
-                    
-                    let coordinate = CLLocationCoordinate2D(latitude: lat, longitude: lon)
-                    
-                    GMSGeocoder.init().reverseGeocodeCoordinate(coordinate, completionHandler: { (response, error) in
-                        if error != nil {
-                            print(error)
-                            return
+            if let JSON = response.result.value as? [String:Any] {
+                print(JSON)
+                if let events = JSON["results"] as? [[String:Any]] {
+                    print(events)
+                    for event in events {
+                        if let venue = event["venue"] as? [String:Any] {
+                            let lat = venue["lat"] as! Double
+                            let lon = venue["lon"] as! Double
+                            let name = event["name"] as! String
+                            let timestamp = event["time"] as! Double
+                            
+                            let coordinate = CLLocationCoordinate2D(latitude: lat, longitude: lon)
+                            print(coordinate)
+                            GMSGeocoder.init().reverseGeocodeCoordinate(coordinate, completionHandler: { (response, error) in
+                                if error != nil {
+                                    print(error)
+                                    return
+                                }
+                                // Add event positionmarker
+                                let marker = GMSMarker()
+                                marker.position = coordinate
+                                marker.title = name
+                                marker.snippet = response?.firstResult()?.thoroughfare
+                                marker.icon = GMSMarker.markerImage(with: .green)
+                                marker.map = self.mapView
+                                print("Event Marker Added")
+                            })
                         }
-                        // Add event positionmarker
-                        let marker = GMSMarker()
-                        marker.position = coordinate
-                        marker.title = response?.firstResult()?.thoroughfare
-                        marker.snippet = snippet
-                        marker.icon = GMSMarker.markerImage(with: .blue)
-                        marker.map = self.mapView
-                        print("Event Marker Added")
-                    })
-                }
-            }
-        })
-    }
-    
-    func findMeetups(url: String) {
-        Alamofire.request(url).responseJSON(completionHandler: { (response) in
-            if let value = response.result.value {
-                let json = JSON(value)
-                
-                for i in 0...json.count {
-                    let meetup = json[i]
-                    let lat = meetup["lat"].doubleValue
-                    let lon = meetup["lon"].doubleValue
-                    let name = meetup["name"].stringValue
-                    
-                    let coordinate = CLLocationCoordinate2D(latitude: lat, longitude: lon)
-                    
-                    GMSGeocoder.init().reverseGeocodeCoordinate(coordinate, completionHandler: { (response, error) in
-                        if error != nil {
-                            print(error)
-                            return
-                        }
-                        // Add event positionmarker
-                        let marker = GMSMarker()
-                        marker.position = coordinate
-                        marker.title = name
-                        marker.snippet = response?.firstResult()?.thoroughfare
-                        marker.icon = GMSMarker.markerImage(with: .green)
-                        marker.map = self.mapView
-                        print("Meetup Marker Added")
-                    })
+                    }
                 }
             }
         })
@@ -118,17 +88,13 @@ extension MapVC: GMSMapViewDelegate {
             print("Position Changed")
             
             // Search for locations
-            let key = "APIKEY"
+            let key = "API_KEY"
             let lat = coordinate.latitude
             let lon = coordinate.longitude
-//            let eventsURL = "https://api.meetup.com/find/locations?&sign=true&photo-host=public&lon=\(lon)&\(lat)&key=\(key)"
-            
-            // Search for meetups
-            let meetupsURL = "https://api.meetup.com/find/groups?&sign=true&photo-host=public&lon=\(lon)&radius=1&lat=\(lat)&key=\(key)"
-            
-            self.findMeetups(url: meetupsURL)
-//            self.findEvents(url: eventsURL)
-            
+
+            // Search for events
+            let eventsURL = "https://api.meetup.com/2/open_events?&sign=true&photo-host=public&lat=\(lat)&lon=\(lon)&radius=1&page=20&key=\(key)"
+            self.findEvents(url: eventsURL)
         }
     }
     
